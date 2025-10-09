@@ -252,7 +252,14 @@ export default function ScoutingForm() {
 
   // Duplicate detection: after visibleMatches/sourceMatches are available
   useEffect(() => {
-    if (formData.competitionId && (formData.matchId || matchText) && formData.teamNumber) {
+    // Always resolve matchId from matchText if needed
+    if (formData.competitionId && formData.teamNumber) {
+      let resolvedMatchId = formData.matchId;
+      if (!resolvedMatchId && matchText) {
+        const found = sourceMatches.find((m) => String(m.matchNumber) === matchText || m.id === matchText);
+        if (found) resolvedMatchId = found.id;
+      }
+
       const resolveMatchLabel = (rawId?: string) => {
         if (!rawId) return '';
         const found = sourceMatches.find((m) => m.id === rawId);
@@ -264,14 +271,14 @@ export default function ScoutingForm() {
         return rawId;
       };
 
-      const targetLabel = formData.matchId ? (sourceMatches.find((m) => m.id === formData.matchId)?.matchNumber || matchText) : matchText;
+      const targetLabel = resolvedMatchId ? (sourceMatches.find((m) => m.id === resolvedMatchId)?.matchNumber || matchText) : matchText;
 
       const duplicate = allScoutingData.some((data) => {
         if (data.competitionId !== formData.competitionId) return false;
         if (Number(data.teamNumber) !== Number(formData.teamNumber)) return false;
 
         // Prefer exact doc id matches
-        if (formData.matchId && data.matchId && formData.matchId === data.matchId) return true;
+        if (resolvedMatchId && data.matchId && resolvedMatchId === data.matchId) return true;
 
         // Otherwise compare human-readable labels (handles rows that stored matchNumber as matchId)
         const rowLabel = resolveMatchLabel(data.matchId);
@@ -338,19 +345,40 @@ export default function ScoutingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // If user typed matchText but matchId not resolved yet, try to resolve using sourceMatches
-    if (!formData.matchId && matchText) {
+
+    // Always resolve matchId from matchText if needed
+    let resolvedMatchId = formData.matchId;
+    if (!resolvedMatchId && matchText) {
       const found = sourceMatches.find((m) => String(m.matchNumber) === matchText || m.id === matchText);
-      if (found) setFormData((prev) => ({ ...prev, matchId: found.id! }));
+      if (found) resolvedMatchId = found.id;
     }
 
-    if (!formData.competitionId || !formData.matchId || !formData.teamNumber) {
+    if (!formData.competitionId || !resolvedMatchId || !formData.teamNumber) {
       alert('Please select competition, match, and team number');
       return;
     }
 
-    if (isDuplicate) {
+    // Check for duplicate before saving
+    const resolveMatchLabel = (rawId?: string) => {
+      if (!rawId) return '';
+      const found = sourceMatches.find((m) => m.id === rawId);
+      if (found) return String(found.matchNumber || '');
+      if (rawId.includes('-')) {
+        const last = rawId.split('-').pop()!.trim();
+        if (last.length > 0) return last;
+      }
+      return rawId;
+    };
+    const targetLabel = resolvedMatchId ? (sourceMatches.find((m) => m.id === resolvedMatchId)?.matchNumber || matchText) : matchText;
+    const duplicate = allScoutingData.some((data) => {
+      if (data.competitionId !== formData.competitionId) return false;
+      if (Number(data.teamNumber) !== Number(formData.teamNumber)) return false;
+      if (resolvedMatchId && data.matchId && resolvedMatchId === data.matchId) return true;
+      const rowLabel = resolveMatchLabel(data.matchId);
+      if (targetLabel && rowLabel && String(rowLabel).toLowerCase() === String(targetLabel).toLowerCase()) return true;
+      return false;
+    });
+    if (duplicate) {
       const confirmOverwrite = confirm(
         `Data already exists for Team ${formData.teamNumber} in this match. Do you want to overwrite it?`
       );
@@ -360,19 +388,20 @@ export default function ScoutingForm() {
     setIsSubmitting(true);
     try {
       // Prepare payload; only include defenseRating when playedDefense is true
-      const payload: any = { ...formData, createdAt: Date.now() };
+      const payload: any = { ...formData, matchId: resolvedMatchId, createdAt: Date.now() };
       if (!formData.playedDefense) delete payload.defenseRating;
       await firestoreDB.addScoutingData(payload as any);
 
       // Clear draft
       localStorage.removeItem('scoutingDraft');
-      
+
       alert('Scouting data saved successfully!');
-      
+
       // Reset form but keep competition and match selection
       setFormData({
-          ...formData,
-          teamNumber: 0,
+        ...formData,
+        matchId: resolvedMatchId,
+        teamNumber: 0,
         autoCoralL1: 0,
         autoCoralL2: 0,
         autoCoralL3: 0,
@@ -468,36 +497,23 @@ export default function ScoutingForm() {
                     const id = e.target.value || '';
                     const sel = sourceMatches.find((m) => m.id === id);
                     setFormData({ ...formData, matchId: id });
-                    setMatchText(sel ? sel.matchNumber : '');
-                    // If a match is chosen, clear any teamText filter and ensure teamNumber is valid for that match
+                    // If a match is chosen, ensure teamNumber is valid for that match
                     if (id) {
-                      setTeamText('');
-                      const s = sourceMatches.find((m) => m.id === id);
-                      if (s && (!s.teams || !s.teams.includes(formData.teamNumber))) {
+                      if (sel && (!sel.teams || !sel.teams.includes(formData.teamNumber))) {
                         setFormData((prev) => ({ ...prev, teamNumber: 0 }));
                       }
                     } else {
                       // match cleared -> also clear selected team
                       setFormData((prev) => ({ ...prev, teamNumber: 0 }));
-                      // restore full matches if we have them
                       if (apiMatchesFull) setApiMatches(apiMatchesFull);
                     }
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      // Show all matches when Enter is pressed while focused on the match select
-                      setMatchText('');
-                      if (apiMatchesFull) setApiMatches(apiMatchesFull);
-                    }
-                  }}
-                  onFocus={() => setShowAllMatches(true)}
-                  onBlur={() => setShowAllMatches(false)}
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                   required
                   disabled={!selectedCompetition}
                 >
                   <option value="">{selectedCompetition ? 'Select Match' : 'Select competition first'}</option>
-                  {(showAllMatches ? sourceMatches : visibleMatches)?.map((match) => (
+                  {sourceMatches?.map((match) => (
                     <option key={match.id} value={match.id}>{match.matchNumber} ({match.matchType})</option>
                   ))}
                 </select>
@@ -524,40 +540,21 @@ export default function ScoutingForm() {
                   })()}
                 </label>
                 <div>
-                  <input
-                    list="teams-list"
-                    value={teamText || (formData.teamNumber ? String(formData.teamNumber) : '')}
+                  <select
+                    value={formData.teamNumber || ''}
                     onChange={(e) => {
-                      const v = e.target.value;
-                      setTeamText(v);
-                      // typing a team should clear a selected match (we're searching by team)
-                      if (v && v.length > 0) {
-                        setFormData((prev) => ({ ...prev, matchId: '' }));
-                      } else {
-                        // cleared team text -> reset selected teamNumber
-                        setFormData((prev) => ({ ...prev, teamNumber: 0 }));
-                        // restore full matches if we have them
-                        if (apiMatchesFull) setApiMatches(apiMatchesFull);
-                      }
+                      const num = Number(e.target.value);
+                      setFormData((prev) => ({ ...prev, teamNumber: num }));
                     }}
-                    onBlur={() => {
-                      // If user typed an exact team number that exists, set teamNumber
-                      const asNum = parseInt(teamText);
-                      if (!isNaN(asNum) && teams.find((t) => t.teamNumber === asNum)) {
-                        setFormData((prev) => ({ ...prev, teamNumber: asNum }));
-                        setTeamText('');
-                      }
-                    }}
-                    placeholder="Type team number or name"
                     className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                     disabled={!selectedCompetition}
                     required
-                  />
-                  <datalist id="teams-list">
+                  >
+                    <option value="">Select Team</option>
                     {visibleTeams?.map((team) => (
-                      <option key={team.id} value={`${team.teamNumber}`}>{team.teamNumber} - {team.teamName}</option>
+                      <option key={team.id} value={team.teamNumber}>{team.teamNumber} - {team.teamName}</option>
                     ))}
-                  </datalist>
+                  </select>
                 </div>
               </div>
             </div>
