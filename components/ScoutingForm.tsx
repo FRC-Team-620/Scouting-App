@@ -15,6 +15,8 @@ export default function ScoutingForm() {
   const [apiMatchesFull, setApiMatchesFull] = useState<Match[] | null>(null);
   const [matchTeamsMap, setMatchTeamsMap] = useState<Record<string, Array<{ teamNumber: number; station?: string }>>>({});
   const [matchText, setMatchText] = useState('');
+  const [showAllMatches, setShowAllMatches] = useState(false);
+  const [teamText, setTeamText] = useState('');
 
   // Helper to sort matches consistently (used for both Firestore and API-sourced matches)
   const sortMatches = (arr: Match[]) => {
@@ -81,13 +83,13 @@ export default function ScoutingForm() {
     teleopCoralL4: 0,
     teleopAlgaeBarge: 0,
     teleopAlgaeProcessor: 0,
-    deepClimb: false,
-    shallowClimb: false,
-    park: false,
+  endgame: 'none',
     playedDefense: false,
     defenseRating: undefined,
     driverSkill: 3,
     robotSpeed: 3,
+    minorFouls: 0,
+    majorFouls: 0,
     notes: '',
   });
 
@@ -130,20 +132,7 @@ export default function ScoutingForm() {
     }
   }, []);
 
-  // Check for duplicates
-  useEffect(() => {
-    if (formData.competitionId && formData.matchId && formData.teamNumber) {
-      const duplicate = allScoutingData.some(
-        (data) =>
-          data.competitionId === formData.competitionId &&
-          data.matchId === formData.matchId &&
-          data.teamNumber === formData.teamNumber
-      );
-      setIsDuplicate(duplicate);
-    } else {
-      setIsDuplicate(false);
-    }
-  }, [formData.competitionId, formData.matchId, formData.teamNumber, allScoutingData]);
+  // Duplicate check relocated below, after sourceMatches is defined
 
   useEffect(() => {
     if (selectedCompetition) {
@@ -236,9 +225,17 @@ export default function ScoutingForm() {
   // Compute filtered lists for datalists. Prefer API-provided matches (with teams) when available.
   const sourceMatches = apiMatches && apiMatches.length ? apiMatches : matches;
   const selectedMatch = sourceMatches.find((m) => m.id === formData.matchId);
-  const visibleTeams = selectedMatch && selectedMatch.teams && selectedMatch.teams.length
-    ? teams.filter((t) => selectedMatch.teams!.includes(t.teamNumber))
-    : teams;
+  // Teams to show in the Team select. Rules:
+  // - If a match is selected, only show teams that competed in that match.
+  // - If no match selected and the user has typed into the teamText box, filter teams by number or name.
+  // - Otherwise show all teams.
+  let visibleTeams = teams;
+  if (selectedMatch && selectedMatch.teams && selectedMatch.teams.length) {
+    visibleTeams = teams.filter((t) => selectedMatch.teams!.includes(t.teamNumber));
+  } else if (teamText && teamText.trim().length > 0) {
+    const q = teamText.toLowerCase();
+    visibleTeams = teams.filter((t) => String(t.teamNumber).includes(teamText) || (t.teamName || '').toLowerCase().includes(q));
+  }
 
   // Compute visible matches:
   // - If matchText is non-empty, filter by matchNumber substring match (helps prevent showing the whole list when the user types/backspaces)
@@ -252,6 +249,42 @@ export default function ScoutingForm() {
   if (formData.teamNumber && formData.teamNumber > 0) {
     visibleMatches = visibleMatches.filter((m) => (m.teams || []).includes(formData.teamNumber));
   }
+
+  // Duplicate detection: after visibleMatches/sourceMatches are available
+  useEffect(() => {
+    if (formData.competitionId && (formData.matchId || matchText) && formData.teamNumber) {
+      const resolveMatchLabel = (rawId?: string) => {
+        if (!rawId) return '';
+        const found = sourceMatches.find((m) => m.id === rawId);
+        if (found) return String(found.matchNumber || '');
+        if (rawId.includes('-')) {
+          const last = rawId.split('-').pop()!.trim();
+          if (last.length > 0) return last;
+        }
+        return rawId;
+      };
+
+      const targetLabel = formData.matchId ? (sourceMatches.find((m) => m.id === formData.matchId)?.matchNumber || matchText) : matchText;
+
+      const duplicate = allScoutingData.some((data) => {
+        if (data.competitionId !== formData.competitionId) return false;
+        if (Number(data.teamNumber) !== Number(formData.teamNumber)) return false;
+
+        // Prefer exact doc id matches
+        if (formData.matchId && data.matchId && formData.matchId === data.matchId) return true;
+
+        // Otherwise compare human-readable labels (handles rows that stored matchNumber as matchId)
+        const rowLabel = resolveMatchLabel(data.matchId);
+        if (targetLabel && rowLabel && String(rowLabel).toLowerCase() === String(targetLabel).toLowerCase()) return true;
+
+        return false;
+      });
+
+      setIsDuplicate(duplicate);
+    } else {
+      setIsDuplicate(false);
+    }
+  }, [formData.competitionId, formData.matchId, formData.teamNumber, allScoutingData, matchText, sourceMatches, apiMatchesFull]);
 
   // When a teamNumber is typed, and the selected competition has an eventKey, fetch filtered matches from API
   useEffect(() => {
@@ -306,6 +339,12 @@ export default function ScoutingForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // If user typed matchText but matchId not resolved yet, try to resolve using sourceMatches
+    if (!formData.matchId && matchText) {
+      const found = sourceMatches.find((m) => String(m.matchNumber) === matchText || m.id === matchText);
+      if (found) setFormData((prev) => ({ ...prev, matchId: found.id! }));
+    }
+
     if (!formData.competitionId || !formData.matchId || !formData.teamNumber) {
       alert('Please select competition, match, and team number');
       return;
@@ -320,10 +359,10 @@ export default function ScoutingForm() {
 
     setIsSubmitting(true);
     try {
-      await firestoreDB.addScoutingData({
-        ...formData,
-        createdAt: Date.now(),
-      });
+      // Prepare payload; only include defenseRating when playedDefense is true
+      const payload: any = { ...formData, createdAt: Date.now() };
+      if (!formData.playedDefense) delete payload.defenseRating;
+      await firestoreDB.addScoutingData(payload as any);
 
       // Clear draft
       localStorage.removeItem('scoutingDraft');
@@ -332,29 +371,27 @@ export default function ScoutingForm() {
       
       // Reset form but keep competition and match selection
       setFormData({
-        ...formData,
-        teamNumber: 0,
-      autoCoralL1: 0,
-      autoCoralL2: 0,
-      autoCoralL3: 0,
-      autoCoralL4: 0,
-      autoAlgaeBarge: 0,
-      autoAlgaeProcessor: 0,
-      autoLeaveZone: false,
-      teleopCoralL1: 0,
-      teleopCoralL2: 0,
-      teleopCoralL3: 0,
-      teleopCoralL4: 0,
-      teleopAlgaeBarge: 0,
-      teleopAlgaeProcessor: 0,
-      deepClimb: false,
-      shallowClimb: false,
-      park: false,
-      defenseRating: 3,
-      driverSkill: 3,
-      robotSpeed: 3,
-      notes: '',
-    });
+          ...formData,
+          teamNumber: 0,
+        autoCoralL1: 0,
+        autoCoralL2: 0,
+        autoCoralL3: 0,
+        autoCoralL4: 0,
+        autoAlgaeBarge: 0,
+        autoAlgaeProcessor: 0,
+        autoLeaveZone: false,
+        teleopCoralL1: 0,
+        teleopCoralL2: 0,
+        teleopCoralL3: 0,
+        teleopCoralL4: 0,
+        teleopAlgaeBarge: 0,
+        teleopAlgaeProcessor: 0,
+        endgame: 'none',
+        defenseRating: 3,
+        driverSkill: 3,
+        robotSpeed: 3,
+        notes: '',
+      });
     } catch (error) {
       console.error('Error saving data:', error);
       alert('Failed to save data. Please try again.');
@@ -425,33 +462,45 @@ export default function ScoutingForm() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Match
                 </label>
-                <input
-                  list="matches-list"
-                  value={matchText}
+                <select
+                  value={formData.matchId || ''}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setMatchText(value);
-                    // Find match by matchNumber within the preferred source (API matches if available)
-                    const match = sourceMatches.find((m) => m.matchNumber === value);
-                    if (match) {
-                      setFormData({ ...formData, matchId: match.id! });
+                    const id = e.target.value || '';
+                    const sel = sourceMatches.find((m) => m.id === id);
+                    setFormData({ ...formData, matchId: id });
+                    setMatchText(sel ? sel.matchNumber : '');
+                    // If a match is chosen, clear any teamText filter and ensure teamNumber is valid for that match
+                    if (id) {
+                      setTeamText('');
+                      const s = sourceMatches.find((m) => m.id === id);
+                      if (s && (!s.teams || !s.teams.includes(formData.teamNumber))) {
+                        setFormData((prev) => ({ ...prev, teamNumber: 0 }));
+                      }
                     } else {
-                      // Clear matchId if typed text doesn't match a known match
-                      setFormData({ ...formData, matchId: '' });
+                      // match cleared -> also clear selected team
+                      setFormData((prev) => ({ ...prev, teamNumber: 0 }));
+                      // restore full matches if we have them
+                      if (apiMatchesFull) setApiMatches(apiMatchesFull);
                     }
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      // Show all matches when Enter is pressed while focused on the match select
+                      setMatchText('');
+                      if (apiMatchesFull) setApiMatches(apiMatchesFull);
+                    }
+                  }}
+                  onFocus={() => setShowAllMatches(true)}
+                  onBlur={() => setShowAllMatches(false)}
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  placeholder={selectedCompetition ? 'Type or pick a match' : 'Select competition first'}
                   required
                   disabled={!selectedCompetition}
-                />
-                <datalist id="matches-list">
-                  {visibleMatches?.map((match) => (
-                    <option key={match.id} value={match.matchNumber}>
-                      {match.matchNumber} ({match.matchType})
-                    </option>
+                >
+                  <option value="">{selectedCompetition ? 'Select Match' : 'Select competition first'}</option>
+                  {(showAllMatches ? sourceMatches : visibleMatches)?.map((match) => (
+                    <option key={match.id} value={match.id}>{match.matchNumber} ({match.matchType})</option>
                   ))}
-                </datalist>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
@@ -474,29 +523,42 @@ export default function ScoutingForm() {
                     return null;
                   })()}
                 </label>
-                <input
-                  list="teams-list"
-                  value={formData.teamNumber ? String(formData.teamNumber) : ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    const num = parseInt(v);
-                    if (!isNaN(num)) {
-                      setFormData({ ...formData, teamNumber: num });
-                    } else {
-                      setFormData({ ...formData, teamNumber: 0 });
-                    }
-                  }}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  placeholder="Type team number or pick from list"
-                  required
-                />
-                <datalist id="teams-list">
-                  {visibleTeams?.map((team) => (
-                    <option key={team.id} value={String(team.teamNumber)}>
-                      {team.teamNumber} - {team.teamName}
-                    </option>
-                  ))}
-                </datalist>
+                <div>
+                  <input
+                    list="teams-list"
+                    value={teamText || (formData.teamNumber ? String(formData.teamNumber) : '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTeamText(v);
+                      // typing a team should clear a selected match (we're searching by team)
+                      if (v && v.length > 0) {
+                        setFormData((prev) => ({ ...prev, matchId: '' }));
+                      } else {
+                        // cleared team text -> reset selected teamNumber
+                        setFormData((prev) => ({ ...prev, teamNumber: 0 }));
+                        // restore full matches if we have them
+                        if (apiMatchesFull) setApiMatches(apiMatchesFull);
+                      }
+                    }}
+                    onBlur={() => {
+                      // If user typed an exact team number that exists, set teamNumber
+                      const asNum = parseInt(teamText);
+                      if (!isNaN(asNum) && teams.find((t) => t.teamNumber === asNum)) {
+                        setFormData((prev) => ({ ...prev, teamNumber: asNum }));
+                        setTeamText('');
+                      }
+                    }}
+                    placeholder="Type team number or name"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    disabled={!selectedCompetition}
+                    required
+                  />
+                  <datalist id="teams-list">
+                    {visibleTeams?.map((team) => (
+                      <option key={team.id} value={`${team.teamNumber}`}>{team.teamNumber} - {team.teamName}</option>
+                    ))}
+                  </datalist>
+                </div>
               </div>
             </div>
             
@@ -614,33 +676,18 @@ export default function ScoutingForm() {
           <div className="site-card p-4">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Endgame</h3>
             <div className="space-y-3">
-              <label className="flex items-center space-x-3 cursor-pointer p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={formData.deepClimb}
-                  onChange={(e) => setFormData({ ...formData, deepClimb: e.target.checked })}
-                  className="w-7 h-7 rounded border-gray-300"
-                />
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">Deep Climb</span>
-              </label>
-              <label className="flex items-center space-x-3 cursor-pointer p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={formData.shallowClimb}
-                  onChange={(e) => setFormData({ ...formData, shallowClimb: e.target.checked })}
-                  className="w-7 h-7 rounded border-gray-300"
-                />
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">Shallow Climb</span>
-              </label>
-              <label className="flex items-center space-x-3 cursor-pointer p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={formData.park}
-                  onChange={(e) => setFormData({ ...formData, park: e.target.checked })}
-                  className="w-7 h-7 rounded border-gray-300"
-                />
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">Park</span>
-              </label>
+              {(['deep', 'shallow', 'park', 'none'] as const).map((opt) => (
+                <label key={opt} className={`flex items-center space-x-3 cursor-pointer p-4 rounded-lg border-2 ${formData.endgame === opt ? 'border-purple-600 bg-white dark:bg-gray-800' : 'border-gray-300 bg-white dark:bg-gray-800'} transition-colors`}>
+                  <input
+                    type="radio"
+                    name="endgame"
+                    checked={formData.endgame === opt}
+                    onChange={() => setFormData({ ...formData, endgame: opt })}
+                    className="w-5 h-5 rounded border-gray-300"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">{opt === 'none' ? 'None' : `${opt.charAt(0).toUpperCase()}${opt.slice(1)}${opt === 'deep' ? ' Climb' : opt === 'shallow' ? ' Climb' : ''}`}</span>
+                </label>
+              ))}
             </div>
           </div>
 
@@ -681,6 +728,24 @@ export default function ScoutingForm() {
           </div>
 
           {/* Notes Section */}
+          <div className="site-card p-4">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Fouls</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CounterField
+                label="Minor Fouls"
+                value={formData.minorFouls ?? 0}
+                onIncrement={() => incrementValue('minorFouls')}
+                onDecrement={() => decrementValue('minorFouls')}
+              />
+              <CounterField
+                label="Major Fouls"
+                value={formData.majorFouls ?? 0}
+                onIncrement={() => incrementValue('majorFouls')}
+                onDecrement={() => decrementValue('majorFouls')}
+              />
+            </div>
+          </div>
+
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Additional Notes</h3>
             <textarea
