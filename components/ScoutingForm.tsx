@@ -252,46 +252,22 @@ export default function ScoutingForm() {
 
   // Duplicate detection: after visibleMatches/sourceMatches are available
   useEffect(() => {
-    // Always resolve matchId from matchText if needed
-    if (formData.competitionId && formData.teamNumber) {
-      let resolvedMatchId = formData.matchId;
-      if (!resolvedMatchId && matchText) {
-        const found = sourceMatches.find((m) => String(m.matchNumber) === matchText || m.id === matchText);
-        if (found) resolvedMatchId = found.id;
-      }
-
-      const resolveMatchLabel = (rawId?: string) => {
-        if (!rawId) return '';
-        const found = sourceMatches.find((m) => m.id === rawId);
-        if (found) return String(found.matchNumber || '');
-        if (rawId.includes('-')) {
-          const last = rawId.split('-').pop()!.trim();
-          if (last.length > 0) return last;
-        }
-        return rawId;
-      };
-
-      const targetLabel = resolvedMatchId ? (sourceMatches.find((m) => m.id === resolvedMatchId)?.matchNumber || matchText) : matchText;
-
+    // Only check for duplicates if all required fields are selected
+    if (formData.competitionId && formData.matchId && formData.teamNumber) {
+      const selectedMatch = sourceMatches.find((m) => m.id === formData.matchId);
+      const canonicalMatchId = selectedMatch ? selectedMatch.id : '';
       const duplicate = allScoutingData.some((data) => {
-        if (data.competitionId !== formData.competitionId) return false;
-        if (Number(data.teamNumber) !== Number(formData.teamNumber)) return false;
-
-        // Prefer exact doc id matches
-        if (resolvedMatchId && data.matchId && resolvedMatchId === data.matchId) return true;
-
-        // Otherwise compare human-readable labels (handles rows that stored matchNumber as matchId)
-        const rowLabel = resolveMatchLabel(data.matchId);
-        if (targetLabel && rowLabel && String(rowLabel).toLowerCase() === String(targetLabel).toLowerCase()) return true;
-
-        return false;
+        return (
+          data.competitionId === formData.competitionId &&
+          Number(data.teamNumber) === Number(formData.teamNumber) &&
+          data.matchId === canonicalMatchId
+        );
       });
-
       setIsDuplicate(duplicate);
     } else {
       setIsDuplicate(false);
     }
-  }, [formData.competitionId, formData.matchId, formData.teamNumber, allScoutingData, matchText, sourceMatches, apiMatchesFull]);
+  }, [formData.competitionId, formData.matchId, formData.teamNumber, allScoutingData, sourceMatches]);
 
   // When a teamNumber is typed, and the selected competition has an eventKey, fetch filtered matches from API
   useEffect(() => {
@@ -346,39 +322,24 @@ export default function ScoutingForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Always resolve matchId from matchText if needed
-    let resolvedMatchId = formData.matchId;
-    if (!resolvedMatchId && matchText) {
-      const found = sourceMatches.find((m) => String(m.matchNumber) === matchText || m.id === matchText);
-      if (found) resolvedMatchId = found.id;
-    }
+    // Always use canonical matchId from sourceMatches
+    const selectedMatch = sourceMatches.find((m) => m.id === formData.matchId);
+    const canonicalMatchId = selectedMatch ? selectedMatch.id : '';
 
-    if (!formData.competitionId || !resolvedMatchId || !formData.teamNumber) {
+    if (!formData.competitionId || !canonicalMatchId || !formData.teamNumber) {
       alert('Please select competition, match, and team number');
       return;
     }
 
     // Check for duplicate before saving
-    const resolveMatchLabel = (rawId?: string) => {
-      if (!rawId) return '';
-      const found = sourceMatches.find((m) => m.id === rawId);
-      if (found) return String(found.matchNumber || '');
-      if (rawId.includes('-')) {
-        const last = rawId.split('-').pop()!.trim();
-        if (last.length > 0) return last;
-      }
-      return rawId;
-    };
-    const targetLabel = resolvedMatchId ? (sourceMatches.find((m) => m.id === resolvedMatchId)?.matchNumber || matchText) : matchText;
-    const duplicate = allScoutingData.some((data) => {
-      if (data.competitionId !== formData.competitionId) return false;
-      if (Number(data.teamNumber) !== Number(formData.teamNumber)) return false;
-      if (resolvedMatchId && data.matchId && resolvedMatchId === data.matchId) return true;
-      const rowLabel = resolveMatchLabel(data.matchId);
-      if (targetLabel && rowLabel && String(rowLabel).toLowerCase() === String(targetLabel).toLowerCase()) return true;
-      return false;
+    const existingDoc = allScoutingData.find((data) => {
+      return (
+        data.competitionId === formData.competitionId &&
+        Number(data.teamNumber) === Number(formData.teamNumber) &&
+        data.matchId === canonicalMatchId
+      );
     });
-    if (duplicate) {
+    if (existingDoc) {
       const confirmOverwrite = confirm(
         `Data already exists for Team ${formData.teamNumber} in this match. Do you want to overwrite it?`
       );
@@ -388,9 +349,22 @@ export default function ScoutingForm() {
     setIsSubmitting(true);
     try {
       // Prepare payload; only include defenseRating when playedDefense is true
-      const payload: any = { ...formData, matchId: resolvedMatchId, createdAt: Date.now() };
+      const payload: any = { ...formData, matchId: canonicalMatchId, createdAt: Date.now() };
       if (!formData.playedDefense) delete payload.defenseRating;
-      await firestoreDB.addScoutingData(payload as any);
+
+      if (existingDoc && existingDoc.id) {
+        // Update existing document
+        if (firestoreDB.updateScoutingData) {
+          await firestoreDB.updateScoutingData(existingDoc.id, payload as any);
+        } else {
+          // If no update method, delete and re-add
+          await firestoreDB.deleteScoutingData(existingDoc.id);
+          await firestoreDB.addScoutingData(payload as any);
+        }
+      } else {
+        // Add new document
+        await firestoreDB.addScoutingData(payload as any);
+      }
 
       // Clear draft
       localStorage.removeItem('scoutingDraft');
@@ -400,7 +374,7 @@ export default function ScoutingForm() {
       // Reset form but keep competition and match selection
       setFormData({
         ...formData,
-        matchId: resolvedMatchId,
+        matchId: canonicalMatchId,
         teamNumber: 0,
         autoCoralL1: 0,
         autoCoralL2: 0,

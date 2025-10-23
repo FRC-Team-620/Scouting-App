@@ -123,7 +123,7 @@ export default function DataReview() {
   const teamStats = useMemo(() => {
   if (!filteredData.length) return [];
 
-    const statsMap = new Map<number, {
+  const statsMap = new Map<number, {
       teamNumber: number;
       matchCount: number;
       avgAutoCoralL4: number;
@@ -147,7 +147,11 @@ export default function DataReview() {
       avgDefenseRating: number;
       matchCountWithDefense: number;
       avgRobotSpeed: number;
-      totalCoralL4: number;
+    totalCoralL4: number;
+    totalAutoCoral: number;
+    totalTeleopCoral: number;
+    totalCoral: number;
+    totalAlgae: number;
       totalPoints: number;
     }>();
 
@@ -175,7 +179,11 @@ export default function DataReview() {
         avgDefenseRating: 0,
         matchCountWithDefense: 0,
         avgRobotSpeed: 0,
-        totalCoralL4: 0,
+    totalCoralL4: 0,
+    totalAutoCoral: 0,
+    totalTeleopCoral: 0,
+    totalCoral: 0,
+    totalAlgae: 0,
         totalPoints: 0,
       };
 
@@ -190,9 +198,17 @@ export default function DataReview() {
       existing.avgTeleopCoralL2 += data.teleopCoralL2;
       existing.avgTeleopCoralL1 += (data.teleopCoralL1 || 0);
       existing.avgTeleopCoralL2 += data.teleopCoralL2;
-      existing.avgAlgaeBarge += data.autoAlgaeBarge + data.teleopAlgaeBarge;
-      existing.avgAlgaeProcessor += data.autoAlgaeProcessor + data.teleopAlgaeProcessor;
+  const algaeSum = (data.autoAlgaeBarge || 0) + (data.teleopAlgaeBarge || 0) + (data.autoAlgaeProcessor || 0) + (data.teleopAlgaeProcessor || 0);
+  existing.avgAlgaeBarge += (data.autoAlgaeBarge || 0) + (data.teleopAlgaeBarge || 0);
+  existing.avgAlgaeProcessor += (data.autoAlgaeProcessor || 0) + (data.teleopAlgaeProcessor || 0);
   // in-net values removed; only track barge/processor
+    // Totals
+    const autoCoralSum = (data.autoCoralL1 || 0) + (data.autoCoralL2 || 0) + (data.autoCoralL3 || 0) + (data.autoCoralL4 || 0);
+    const teleopCoralSum = (data.teleopCoralL1 || 0) + (data.teleopCoralL2 || 0) + (data.teleopCoralL3 || 0) + (data.teleopCoralL4 || 0);
+    existing.totalAutoCoral += autoCoralSum;
+    existing.totalTeleopCoral += teleopCoralSum;
+    existing.totalCoral += autoCoralSum + teleopCoralSum;
+    existing.totalAlgae += algaeSum;
       existing.totalMinorFouls += (data.minorFouls || 0);
       existing.totalMajorFouls += (data.majorFouls || 0);
   existing.endgameDeepCount += (data.endgame === 'deep') ? 1 : 0;
@@ -241,6 +257,50 @@ export default function DataReview() {
       avgPoints: stats.totalPoints / stats.matchCount,
     })).sort((a, b) => b.avgPoints - a.avgPoints);
   }, [filteredData]);
+
+  // Sorting for Team Performance Summary
+  type SortKey =
+    | 'teamNumber'
+    | 'avgPoints'
+    | 'avgAutoCoralL4'
+    | 'avgTeleopCoralL4'
+    | 'avgTeleopCoralL3'
+    | 'avgAlgaeBarge'
+    | 'deepClimbRate'
+    | 'avgDriverSkill'
+    | 'avgDefenseRating'
+    | 'totalCoral';
+
+  const [sortKey, setSortKey] = useState<SortKey>('avgPoints');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const sortedTeamStats = useMemo(() => {
+    const arr = [...teamStats];
+    arr.sort((a: any, b: any) => {
+      const va = a[sortKey];
+      const vb = b[sortKey];
+      let cmp = 0;
+      if (typeof va === 'string' && typeof vb === 'string') {
+        cmp = va.localeCompare(vb);
+      } else {
+        const na = Number(va);
+        const nb = Number(vb);
+        cmp = na === nb ? 0 : na < nb ? -1 : 1;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [teamStats, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // Default to descending for metrics; teamNumber/matchCount can also benefit from desc by default
+      setSortDir('desc');
+    }
+  };
 
   // Map of matchId -> human-friendly matchNumber (for display)
   const matchNumberById = useMemo(() => {
@@ -819,27 +879,47 @@ export default function DataReview() {
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-100 dark:bg-gray-700">
                 <tr>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Team</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Matches</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Avg Pts</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Auto L4</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Teleop L4</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Teleop L3</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Algae</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Deep %</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Driver</th>
-                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold">Defense</th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('teamNumber')}>
+                    Team {sortKey === 'teamNumber' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgPoints')}>
+                    Avg Pts {sortKey === 'avgPoints' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgAutoCoralL4')}>
+                    Auto L4 {sortKey === 'avgAutoCoralL4' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgTeleopCoralL4')}>
+                    Teleop L4 {sortKey === 'avgTeleopCoralL4' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgTeleopCoralL3')}>
+                    Teleop L3 {sortKey === 'avgTeleopCoralL3' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('totalCoral')}>
+                    Total Coral {sortKey === 'totalCoral' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgAlgaeBarge')}>
+                    Algae {sortKey === 'avgAlgaeBarge' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('deepClimbRate')}>
+                    Deep % {sortKey === 'deepClimbRate' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgDriverSkill')}>
+                    Driver {sortKey === 'avgDriverSkill' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                  <th className="px-3 py-3 text-gray-700 dark:text-gray-300 font-semibold cursor-pointer select-none" onClick={() => toggleSort('avgDefenseRating')}>
+                    Defense {sortKey === 'avgDefenseRating' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {teamStats.map((stats) => (
+                {sortedTeamStats.map((stats) => (
                   <tr key={stats.teamNumber} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-3 py-3 font-bold text-red-600 dark:text-red-400">{stats.teamNumber}</td>
-                    <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.matchCount}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200 font-semibold">{stats.avgPoints.toFixed(1)}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.avgAutoCoralL4.toFixed(1)}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.avgTeleopCoralL4.toFixed(1)}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.avgTeleopCoralL3.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.totalCoral}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.avgAlgaeBarge.toFixed(1)}</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.deepClimbRate.toFixed(0)}%</td>
                     <td className="px-3 py-3 text-gray-800 dark:text-gray-200">{stats.avgDriverSkill.toFixed(1)}</td>
