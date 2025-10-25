@@ -64,16 +64,16 @@ export interface ScoutingData {
   teleopAlgaeBarge: number;
   teleopAlgaeProcessor: number;
   
-  // Endgame
-  deepClimb: boolean;
-  shallowClimb: boolean;
-  park: boolean;
+  // Endgame (exclusive): one of 'deep', 'shallow', 'park', or 'none'
+  endgame?: 'deep' | 'shallow' | 'park' | 'none';
   
   // Additional Notes
   playedDefense: boolean; // whether the robot played defense in this match
   defenseRating?: number; // 1-5 (optional; only present when playedDefense === true)
   driverSkill: number; // 1-5
   robotSpeed: number; // 1-5
+  minorFouls?: number;
+  majorFouls?: number;
   notes: string;
   
   createdAt: number;
@@ -288,12 +288,47 @@ export const firestoreDB = {
   
   // Scouting Data
   async addScoutingData(data: Omit<ScoutingData, 'id'>) {
+    // Normalize matchId: if the provided matchId appears to be a human match number or contains
+    // a suffix like '<docId>-Qualification 9', attempt to resolve the canonical match document id
+    // for the same competition and use that as the stored matchId.
+    try {
+      let candidate = String(data.matchId || '').trim();
+      // If the value contains a hyphen and looks like 'docid-Qualification 9', take the suffix
+      if (candidate.includes('-')) {
+        const suffix = candidate.split('-').pop();
+        if (suffix) candidate = suffix.trim();
+      }
+
+      if (candidate) {
+        // Query matches for the competition with matchNumber equal to candidate
+        const q = query(
+          collection(db, COLLECTIONS.matches),
+          where('competitionId', '==', data.competitionId),
+          where('matchNumber', '==', candidate)
+        );
+        const found = await getDocs(q);
+        if (!found.empty) {
+          // Use the first matching document id as canonical
+          const matchDoc = found.docs[0];
+          data.matchId = matchDoc.id;
+        }
+      }
+    } catch (err) {
+      // If normalization fails for any reason, fall back to storing whatever was provided
+      console.warn('Failed to normalize matchId for scouting data:', err);
+    }
+
     const docRef = await addDoc(collection(db, COLLECTIONS.scoutingData), data);
     return docRef.id;
   },
   
   async deleteScoutingData(id: string) {
     await deleteDoc(doc(db, COLLECTIONS.scoutingData, id));
+  },
+  
+  async updateScoutingData(id: string, data: Partial<ScoutingData>) {
+    const ref = doc(db, COLLECTIONS.scoutingData, id);
+    await updateDoc(ref, data as any);
   },
   
   subscribeToScoutingData(callback: (data: ScoutingData[]) => void) {
