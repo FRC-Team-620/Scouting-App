@@ -5,163 +5,150 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function AnalysisPage() {
-    const [teamStats, setTeamStats] = useState<any[]>([]);
-    const [matches, setMatches] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [activeMatch, setActiveMatch] = useState<any>(null);
-    const router = useRouter();
-    const [sortBy, setSortBy] = useState('avg_auto');
+  const [teamStats, setTeamStats] = useState<any[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [selectedCompId, setSelectedCompId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
-    useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      // 1. Fetch competitions for the dropdown
+      const { data: compData } = await supabase.from('competitions').select('*').order('year');
+      if (compData && compData.length > 0) {
+        setCompetitions(compData);
 
-  const fetchData = async () => {
-      // 1. Fetch our custom "View" we just made in SQL
+        const savedCompId = localStorage.getItem('analysis_last_comp_id');
+
+        if(savedCompId && compData.find(c => c.id.toString() === savedCompId)){
+          setSelectedCompId(savedCompId);
+        }else if(compData && compData.length > 0){
+          setSelectedCompId(compData[0].id.toString());
+        }
+      }
+
+      // 2. Fetch team averages (Assuming the view includes competition_id)
       const { data: stats } = await supabase.from('team_averages').select('*');
       
-      // 2. Fetch the match schedule
+      // 3. Fetch match schedule
       const { data: matchData } = await supabase.from('matches').select('*').order('match_number');
 
       setTeamStats(stats || []);
       setMatches(matchData || []);
       setLoading(false);
     };
+    fetchData();
+  }, []);
 
-    const filteredTeams = teamStats.filter(t => t.team_number.toString().includes(searchQuery));
+  // Filter teams and matches based on the selected competition
+  const filteredTeams = teamStats.filter(t => 
+    t.competition_id === selectedCompId && 
+    t.team_number.toString().includes(searchQuery)
+  );
 
-if (loading) return <div className="p-10 text-white">Calculating stats...</div>;
+  const handleCompChange = (compId: string) => {
+      setSelectedCompId(compId);
+      localStorage.setItem('analysis_last_comp_id', compId);
+    }
+
+  const filteredMatches = matches.filter(m => m.competition_id === selectedCompId);
+
+  if (loading) return <div className="p-10 text-white animate-pulse">Synchronizing Chronos Archives...</div>;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-10 bg-black min-h-screen text-white">
-      <h1 className="text-4xl font-black tracking-tighter">ANALYSIS HUB</h1>
-
-      {/* --- SECTION 1: TEAM SEARCH & LEADERBOARD --- */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-end">
-          <h2 className="text-xl font-bold text-blue-400">Team Performance</h2>
-          <input 
-            type="text" 
-            placeholder="Search team number..."
-            className="bg-gray-900 border border-gray-700 p-2 rounded-lg text-sm w-64 focus:border-blue-500 outline-none"
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+    <div className="p-8 max-w-7xl mx-auto space-y-10 bg-black min-h-screen text-white">
+      {/* --- HEADER & COMP SELECT --- */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6">
+        <div className="space-y-2">
+          <h1 className="text-5xl font-black text-red-700 tracking-tighter">ANALYSIS HUB</h1>
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Active Event:</label>
+            <select 
+              value={selectedCompId}
+              onChange={(e) => handleCompChange(e.target.value)}
+              className="bg-gray-900 border border-gray-700 text-red-700 text-sm rounded-lg p-2 outline-none focus:border-amber-500 transition-all"
+            >
+              {competitions.map(c => (
+                <option key={c.id} value={c.id}> {c.year} - {c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
-          <table className="w-full text-left">
-            <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+        <input 
+          type="text" 
+          placeholder="Search team number..."
+          className="bg-gray-900 border border-gray-700 p-3 rounded-xl text-sm w-full md:w-80 focus:border-blue-500 outline-none"
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {/* --- SECTION 1: LEADERBOARD --- */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold text-blue-400 uppercase tracking-widest">Scout Rankings</h2>
+        <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/40">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-gray-800/50 text-gray-400 uppercase text-[10px] font-black">
               <tr>
                 <th className="p-4">Team</th>
                 <th className="p-4">Avg Auto</th>
+                <th className="p-4">Avg Teleop</th>
+                <th className="p-4">Climb (L1-3)</th>
                 <th className="p-4 text-right">Potential</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-            {filteredTeams
-            .sort((a,b) => b[sortBy] - a[sortBy])
-            .map((stat) => (
+              {filteredTeams.sort((a,b) => b.avg_auto - a.avg_auto).map((stat) => (
                 <tr 
-                key={stat.team_number} 
-                onClick={() => router.push(`/analysis/team/${stat.team_number}`)}
-                className="hover:bg-blue-900/10 cursor-pointer transition-colors group"
+                  key={stat.team_number} 
+                  onClick={() => router.push(`/analysis/team/${stat.team_number}`)}
+                  className="hover:bg-amber-500/5 cursor-pointer transition-colors group"
                 >
-                <td className="p-4">
-                    <span className="font-bold text-lg group-hover:text-blue-400">
-                    {stat.team_number}
-                    </span>
-                </td>
-                <td className="p-4 text-green-400 font-mono">
-                    {stat.avg_auto}
-                </td>
-                <td className="p-4 text-right">
-                    {/* Potential bar remains the same */}
-                    <div className="inline-block w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                        className="bg-blue-500 h-full" 
-                        style={{ width: `${Math.min(stat.avg_auto * 15, 100)}%` }}
-                        ></div>
+                  <td className="p-4"><span className="font-black text-2xl group-hover:text-amber-400 transition-colors">{stat.team_number}</span></td>
+                  <td className="p-4 text-blue-400 font-mono font-bold">{stat.avg_auto}</td>
+                  <td className="p-4 text-orange-400 font-mono font-bold">{stat.avg_teleop}</td>
+                  <td className="p-4 font-bold text-green-500">L{Math.round(stat.avg_climb)}</td>
+                  <td className="p-4 text-right">
+                    <div className="inline-block w-32 h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-full" style={{ width: `${Math.min(stat.avg_auto * 8, 100)}%` }}></div>
                     </div>
-                </td>
+                  </td>
                 </tr>
-            ))}
+              ))}
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* --- SECTION 2: MATCH SCHEDULE --- */}
-      <section>
-        <h2 className="text-xl font-bold mb-4 text-red-400">Match Intelligence</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {matches.map((m) => (
-            <div 
-              key={m.id} 
-              onClick={() => setActiveMatch(m)} // CLICK TO OPEN SUMMARY
-              className="p-4 bg-gray-1000 border border-gray-500 xl flex items-center justify-between cursor-pointer hover:border-red-600 transition"
-            >
-              <span className="font-bold text-gray-500">QM {m.match_number}</span>
-              <div className="flex gap-4">
-                <div className="flex -space-x-0">
-                  {m.red_alliance.map((t: any) => <div key={t} className="w-9 h-9 rounded-full bg-red-700 border-1 border-gray-900 flex items-center justify-center text-[10px] font-bold">{t}</div>)}
+      {/* --- SECTION 2: MATCH PREVIEWS --- */}
+      <section className="space-y-6">
+        <h2 className="text-xl font-bold text-red-500 uppercase tracking-widest">Upcoming Strategy</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredMatches.map((m) => (
+            <div key={m.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-red-600 transition-all group">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-xs font-black text-gray-500">QUAL MATCH {m.match_number}</span>
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  {m.red_alliance.map((t: number) => (
+                    <div key={t} onClick={() => router.push(`/analysis/team/${t}`)} className="text-lg font-black text-red-500 hover:underline cursor-pointer">{t}</div>
+                  ))}
                 </div>
-                <div className="flex -space-x-0">
-                  {m.blue_alliance.map((t: any) => <div key={t} className="w-9 h-9 rounded-full bg-blue-700 border-1 border-gray-900 flex items-center justify-center text-[10px] font-bold">{t}</div>)}
+                <div className="text-xs font-black text-gray-700 italic">VS</div>
+                <div className="space-y-1 text-right">
+                  {m.blue_alliance.map((t: number) => (
+                    <div key={t} onClick={() => router.push(`/analysis/team/${t}`)} className="text-lg font-black text-blue-500 hover:underline cursor-pointer">{t}</div>
+                  ))}
                 </div>
               </div>
             </div>
           ))}
         </div>
       </section>
-
-      {/* --- SECTION 3: THE MATCH SUMMARY OVERLAY (MODAL) --- */}
-      {activeMatch && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 border border-gray-700 w-full max-w-2xl rounded-3xl p-8 relative overflow-hidden">
-            <button 
-              onClick={() => setActiveMatch(null)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white text-2xl"
-            >✕</button>
-
-            <h2 className="text-3xl font-black mb-6">Match {activeMatch.match_number} Breakdown</h2>
-            
-            <div className="grid grid-cols-2 gap-8">
-              {/* RED SUMMARY */}
-              <div className="space-y-4">
-                <h3 className="text-red-500 font-bold border-b border-red-900/50 pb-2">Red Alliance</h3>
-                {activeMatch.red_alliance.map((t: number) => {
-                  const stats = teamStats.find(s => s.team_number === t);
-                  return (
-                    <div key={t} className="flex justify-between items-center">
-                      <span className="font-bold text-xl">{t}</span>
-                      <span className="text-gray-400 text-sm">Avg Auto: {stats?.avg_auto || '0.0'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* BLUE SUMMARY */}
-              <div className="space-y-4">
-                <h3 className="text-blue-500 font-bold border-b border-blue-900/50 pb-2">Blue Alliance</h3>
-                {activeMatch.blue_alliance.map((t: number) => {
-                  const stats = teamStats.find(s => s.team_number === t);
-                  return (
-                    <div key={t} className="flex justify-between items-center">
-                      <span className="font-bold text-xl">{t}</span>
-                      <span className="text-gray-400 text-sm">Avg Auto: {stats?.avg_auto || '0.0'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-gray-800 text-center">
-               <p className="text-gray-500 text-sm italic">Compare these stats to predict which alliance will win the Auto period.</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

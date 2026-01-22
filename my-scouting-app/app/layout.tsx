@@ -35,6 +35,7 @@ export default function RootLayout({
             
             <div className="flex gap-6 text-sm font-bold uppercase tracking-wide text-gray-400">
               <Link href="/scout" className="hover:text-white transition">Scout</Link>
+              <Link href="/pitscout" className="hover:text-white transition">Pit Scouting</Link>
               <Link href="/analysis" className="hover:text-white transition">Analysis</Link>
               <Link href="/admin" className="hover:text-gray-200 text-gray-600 transition">Admin</Link>
             </div>
