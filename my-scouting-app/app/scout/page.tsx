@@ -10,7 +10,7 @@ export default function MatchSelector(){
     const [allMatches, setAllMatches] = useState<any[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<any>(null);
     const [scoutingTeam, setScoutingTeam] = useState<number | null>(null);
-    const [autoNotes, setAutoNotes] = useState(0);
+    const [autoScore, setAutoScore] = useState(0);
     const [loading, setLoading] = useState(true);
     const [teleopScore, setTeleopScore] = useState(0);
     const [climbLevel, setClimbLevel] = useState(0); // 0=None, 1=Park, 2=Low, 3=High
@@ -18,7 +18,7 @@ export default function MatchSelector(){
     const [defense, setDefense] = useState(0); // Default to low (1)
     const [notes, setNotes] = useState("");
     const [pickupPositions, setPickupPositions] = useState<string[]>([]);
-    const [hopperSize, setHopperSize] = useState(3);
+    const [intakeSpeed, setIntakeSpeed] = useState(3);
     const [shootingSpeed, setShootingSpeed] = useState(3);
     const [autoClimb, setAutoClimb] = useState(false);
     
@@ -76,7 +76,7 @@ export default function MatchSelector(){
 
     const resetForm = () => {
       setScoutingTeam(null);
-      setAutoNotes(0);
+      setAutoScore(0);
       setTeleopScore(0);
       setClimbLevel(0);
       setSpeed(3);
@@ -84,7 +84,7 @@ export default function MatchSelector(){
       setNotes("");
       setPickupPositions([]);
       setShootingSpeed(3);
-      setHopperSize(3);
+      setIntakeSpeed(3);
       setAutoClimb(false);
     };
 
@@ -93,7 +93,7 @@ export default function MatchSelector(){
             {
                 match_id: selectedMatch.id,
                 team_number: scoutingTeam,
-                auto_score: autoNotes,
+                auto_score: autoScore,
                 teleop_score: teleopScore,
                 climb_level: climbLevel,
                 speed: speed,
@@ -102,9 +102,8 @@ export default function MatchSelector(){
                 pickup_positions: pickupPositions,
                 scouter_name: "User",
                 shooting_speed: shootingSpeed,
-                hopper_size: hopperSize,
+                intake_speed: intakeSpeed,
                 auto_climb: autoClimb,
-
             }
         ]);
 
@@ -172,9 +171,19 @@ export default function MatchSelector(){
   </div>
 </div>
 
+{/* --- AUTO SCORE --- */}
+<div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
+    <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Auto Points (Estimate)</label>
+    <div className="flex items-center justify-between">
+      <button onClick={() => setAutoScore(Math.max(0, autoScore - 1))} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
+      <span className="text-4xl font-black">{autoScore}</span>
+      <button onClick={() => setAutoScore(autoScore + 1)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+    </div>
+  </div>  
+
   {/* --- TELEOP SCORE --- */}
   <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-    <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Teleop Points</label>
+    <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Teleop Points (Estimate) </label>
     <div className="flex items-center justify-between">
       <button onClick={() => setTeleopScore(Math.max(0, teleopScore - 1))} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
       <span className="text-4xl font-black">{teleopScore}</span>
@@ -256,7 +265,7 @@ export default function MatchSelector(){
     <div className="bg-gray-900 p-4 rounded-2xl border border-gray-800">
   <div className="flex justify-between items-center mb-2">
     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-      Speed
+      Movement Speed
     </label>
     {/* Dynamic Badge */}
     <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
@@ -327,12 +336,14 @@ export default function MatchSelector(){
   />
   
   {/* Tick Marks with N/A for 0 */}
-  <div className="flex justify-between mt-2 px-1">
-    {[0, 1, 2, 3, 4, 5].map((val) => (
-      <span key={val} className={`text-[10px] font-bold ${defense === val ? 'text-white' : 'text-gray-600'}`}>
+<div className="flex justify-between mt-2 px-[6px]"> {/* Added specific px-1.5 equivalent for alignment */}
+  {[0, 1, 2, 3, 4, 5].map((val) => (
+    <div key={val} className="flex flex-col items-center w-4"> {/* Fixed width container for each label */}
+      <span className={`text-[10px] font-bold ${defense === val ? 'text-white' : 'text-gray-600'}`}>
         {val === 0 ? 'N/A' : val}
       </span>
-    ))}
+    </div>
+  ))}
   </div>
 </div>
 
@@ -340,30 +351,30 @@ export default function MatchSelector(){
   <div className="bg-gray-900 p-4 rounded-2xl border border-gray-800">
     <div className="flex justify-between items-center mb-2">
       <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-        Hopper
+        Intake Speed
       </label>
       <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
-        hopperSize >= 4 ? 'bg-purple-500/20 text-purple-400' : 
-        hopperSize >= 1 ? 'bg-blue-500/20 text-blue-400' : 
+        intakeSpeed >= 4 ? 'bg-purple-500/20 text-purple-400' : 
+        intakeSpeed >= 1 ? 'bg-blue-500/20 text-blue-400' : 
           'bg-gray-800 text-gray-400'
       }`}>
-        {hopperSize === 1 && "Less Than 10 Fuel"}
-        {hopperSize === 2 && "15 Fuel or Less"}
-        {hopperSize === 3 && "15-25 Fuel"}
-        {hopperSize === 4 && "25-35 Fuel"}
-        {hopperSize === 5 && "More than 35 Fuel"}
+        {intakeSpeed === 1 && "Slow"}
+        {intakeSpeed === 2 && "Below Avg"}
+        {intakeSpeed === 3 && "Average"}
+        {intakeSpeed === 4 && "Fast"}
+        {intakeSpeed === 5 && "Elite"}
       </span>
     </div>
     <input 
       type="range" min="1" max="5" step="1"
-      value={hopperSize} 
-      onChange={(e) => setHopperSize(parseInt(e.target.value))} 
+      value={intakeSpeed} 
+      onChange={(e) => setIntakeSpeed(parseInt(e.target.value))} 
       className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500 transition-all" 
     />
     <div className="flex justify-between mt-2 px-1">
       {[1, 2, 3, 4, 5].map((val) => (
-        <span key={val} className={`text-[10px] font-bold ${hopperSize === val ? 'text-white' : 'text-gray-600'}`}>
-          {val === 5 ? '5+' : val}
+        <span key={val} className={`text-[10px] font-bold ${intakeSpeed === val ? 'text-white' : 'text-gray-600'}`}>
+          {val === 5 ? '5' : val}
         </span>
       ))}
     </div>
