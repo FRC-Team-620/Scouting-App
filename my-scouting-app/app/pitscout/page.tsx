@@ -18,10 +18,12 @@ export default function PitScoutingPage() {
   const [drivetrain, setDrivetrain] = useState("Swerve");
   const [canBump, setCanBump] = useState(false);
   const [canTrench, setCanTrench] = useState(false);
-  const [shooterStyle, setShooterStyle] = useState("turret"); // turret, fixed_single, buckshot
+  const [shooterStyle, setShooterStyle] = useState("turret"); // turret, fixed_single, buckshot, other
   const [maxClimb, setMaxClimb] = useState(0); 
   const [hopperSize, setHopperSize] = useState(3);
   const [notes, setNotes] = useState("");
+  const [climbingLocation, setClimbingLocation] = useState("none"); // center, side, anywhere, other
+  const [intakeStyle, setIntakeStyle] = useState("over"); //over, under, other
 
   const [canAutoClimb, setCanAutoClimb] = useState(false);
 
@@ -103,7 +105,7 @@ export default function PitScoutingPage() {
       can_traverse_bump: canBump,
       can_traverse_trench: canTrench,
       shooter_style: shooterStyle,
-      intake_type: "", // Add as needed
+      intake_type: intakeStyle, // Add as needed
       fuel_capacity: hopperSize,
       max_climb_level: maxClimb,
       robot_weight_lbs: 0, // Add as needed
@@ -117,6 +119,11 @@ export default function PitScoutingPage() {
     else {
       alert(`Team ${teamNumber} Saved!`);
       // Reset form
+      resetForm();
+    }
+  };
+
+  const resetForm = () => {
       setTeamNumber("");
       setDrivetrain("Swerve");
       setCanBump(false);
@@ -126,8 +133,11 @@ export default function PitScoutingPage() {
       setHopperSize(3);
       setNotes("");
       setExistingPitData(null);
-    }
+      setClimbingLocation("none");
+      setCanAutoClimb(false);
+      setIntakeStyle("over");
   };
+
 
   if (loading) return <div className="p-10 text-gray-500 font-bold uppercase tracking-widest">Initialising...</div>;
 
@@ -142,7 +152,7 @@ export default function PitScoutingPage() {
           </div>
           <select 
             value={selectedCompId}
-            onChange={(e) => setSelectedCompId(e.target.value)}
+            onChange={(e) => {setSelectedCompId(e.target.value); resetForm();}}
             className="bg-gray-900 text-[10px] font-bold border border-gray-700 rounded px-2 py-1 outline-none"
           >
             {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -172,7 +182,7 @@ export default function PitScoutingPage() {
             }}
             onFocus={() => setShowTeamDropdown(true)}
             onBlur={() => setTimeout(() => setShowTeamDropdown(false), 200)}
-            className="bg-gray-800 border border-gray-700 text-2xl font-black w-full outline-none text-blue-500 px-4 py-3 rounded-lg"
+            className="bg-gray-800 border border-gray-700 text-2xl font-black w-full outline-none text-red-500 px-4 py-3 rounded-lg"
           />
           
           {/* Dropdown */}
@@ -209,7 +219,7 @@ export default function PitScoutingPage() {
               <button 
                 key={type}
                 onClick={() => setDrivetrain(type)}
-                className={`p-4 rounded-2xl font-bold border-2 transition-all ${drivetrain === type ? 'bg-blue-600 border-blue-400' : 'bg-gray-900 border-gray-800 text-gray-500'}`}
+                className={`p-4 rounded-2xl font-bold border-2 transition-all ${drivetrain === type ? 'bg-red-600 border-blue-400' : 'bg-gray-900 border-gray-800 text-gray-500'}`}
               >
                 {type}
               </button>
@@ -250,10 +260,56 @@ export default function PitScoutingPage() {
                 key={style.id}
                 onClick={() => setShooterStyle(style.id)}
                 className={`p-3 rounded-xl font-bold text-xs uppercase border-2 transition-all ${
-                  shooterStyle === style.id ? 'bg-orange-600 border-orange-400' : 'bg-gray-900 border-gray-800 text-gray-600'
+                  shooterStyle === style.id ? 'bg-red-600 border-red-400' : 'bg-gray-900 border-gray-800 text-gray-600'
                 }`}
               >
                 {style.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* --- CLIMBING STYLE --- */}
+        <div className="space-y-4">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Climbing Style</label>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { id: 'none', label: 'None' },
+              { id: 'side', label: 'Side' },
+              { id: 'center', label: 'Center' },
+              {id: 'anywhere', label: 'Anywhere'},
+              { id: 'other', label: 'Other' }
+            ].map((location) => (
+              <button
+                key={location.id}
+                onClick={() => setClimbingLocation(location.id)}
+                className={`p-3 rounded-xl font-bold text-xs uppercase border-2 transition-all ${
+                  climbingLocation === location.id ? 'bg-red-600 border-red-400' : 'bg-gray-900 border-gray-800 text-gray-600'
+                }`}
+              >
+                {location.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* --- INTAKE STYLE --- */}
+        <div className="space-y-4">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Intake Style</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'over', label: 'Over-the-bumper' },
+              { id: 'under', label: 'Under-the-bumper' },
+              { id: 'other', label: 'Other' }
+            ].map((location) => (
+              <button
+                key={location.id}
+                onClick={() => setIntakeStyle(location.id)}
+                className={`p-3 rounded-xl font-bold text-xs uppercase border-2 transition-all ${
+                  intakeStyle === location.id ? 'bg-red-600 border-red-400' : 'bg-gray-900 border-gray-800 text-gray-600'
+                }`}
+              >
+                {location.label}
               </button>
             ))}
           </div>
@@ -263,7 +319,7 @@ export default function PitScoutingPage() {
         <div className="bg-gray-900/50 p-6 rounded-3xl border border-gray-800">
           <div className="flex justify-between items-center mb-6">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hopper Capacity</label>
-            <span className="bg-purple-500/20 text-purple-400 text-[10px] font-black px-3 py-1 rounded-full uppercase">
+            <span className="bg-red-500/20 text-red-400 text-[10px] font-black px-3 py-1 rounded-full uppercase">
               {hopperSize === 1 && "< 10 Fuel"}
               {hopperSize === 2 && "10-20 Fuel"}
               {hopperSize === 3 && "20-30 Fuel"}
@@ -275,7 +331,7 @@ export default function PitScoutingPage() {
             type="range" min="1" max="5" step="1"
             value={hopperSize} 
             onChange={(e) => setHopperSize(parseInt(e.target.value))} 
-            className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500" 
+            className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-500" 
           />
         </div>
 
@@ -336,8 +392,8 @@ function ToggleButton({ label, subtext, active, onClick }: { label: string; subt
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start p-4 rounded-2xl font-bold border-2 transition-all w-full text-left ${
-        active ? 'bg-green-800 border-green-400 text-white' : 'bg-gray-900 border-gray-800 text-gray-400'
+      className={`flex flex-col items-center justify-center p-4 rounded-2xl font-bold border-2 transition-all w-full text-left ${
+        active ? 'bg-red-800 border-red-400 text-white' : 'bg-gray-900 border-gray-800 text-gray-400'
       }`}
     >
       <span>{label}</span>
