@@ -38,6 +38,7 @@ export default function RootLayout({
               <Link href="/pitscout" className="hover:text-white transition">Pit Scouting</Link>
               <Link href="/analysis/matches" className="hover:text-white transition">Match Analysis</Link>
               <Link href="/analysis/teams" className="hover:text-white transition">Team Analysis</Link>
+              <Link href="/analysis/pick-lists" className="hover:text-white transition">Pick List Maker</Link>
 
               <Link href="/admin" className="hover:text-gray-200 text-gray-600 transition">Admin</Link>
             </div>
