@@ -29,7 +29,7 @@ export async function GET(request: Request) {
             .upsert({
                 event_key: eventKey,
                 name: event_name,
-                year: parseInt(eventKey.substring(0,4))
+                year: parseInt(eventKey.substring(0,4)),
             }, {onConflict: 'event_key'})
             .select()
             .single();
@@ -73,6 +73,7 @@ export async function GET(request: Request) {
                     red_alliance: m.alliances.red.team_keys.map((k: string) => parseInt(k.replace('frc', ''))),
                     blue_alliance: m.alliances.blue.team_keys.map((k: string) => parseInt(k.replace('frc', ''))),
                     event_key: eventKey, // Link this match to the event
+                    match_key: m.key
                 };
 
                 // Add this match to the Map. If match_number 1 appears twice, 

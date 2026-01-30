@@ -55,14 +55,14 @@ export default function AnalysisPage() {
 
   const filteredMatches = matches.filter(m => m.competition_id === selectedCompId);
 
-  if (loading) return <div className="p-10 text-white animate-pulse">Synchronizing Chronos Archives...</div>;
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10 bg-black min-h-screen text-white">
+if (loading) return <div className="p-10 text-white animate-pulse">Synchronizing Chronos Archives...</div>;
+return (
+      <div className="p-8 max-w-7xl mx-auto space-y-10 bg-black min-h-screen text-white">
       {/* --- HEADER & COMP SELECT --- */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div className="space-y-2">
-          <h1 className="text-5xl font-black text-red-700 tracking-tighter">ANALYSIS HUB</h1>
+          <h1 className="text-5xl font-black text-red-700 tracking-tighter">TEAM ANALYSIS HUB</h1>
           <div className="flex items-center gap-3">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Active Event:</label>
             <select 
@@ -84,8 +84,8 @@ export default function AnalysisPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
-
-      {/* --- SECTION 1: LEADERBOARD --- */}
+      
+      
       <section className="space-y-4">
         <h2 className="text-xl font-bold text-blue-400 uppercase tracking-widest">Scout Rankings</h2>
         <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/40">
@@ -103,7 +103,7 @@ export default function AnalysisPage() {
               {filteredTeams.sort((a,b) => b.avg_auto - a.avg_auto).map((stat) => (
                 <tr 
                   key={stat.team_number} 
-                  onClick={() => router.push(`/analysis/team/${stat.team_number}`)}
+                  onClick={() => router.push(`/analysis/teams/team/${stat.team_number}`)}
                   className="hover:bg-amber-500/5 cursor-pointer transition-colors group"
                 >
                   <td className="p-4"><span className="font-black text-2xl group-hover:text-amber-400 transition-colors">{stat.team_number}</span></td>
@@ -121,34 +121,6 @@ export default function AnalysisPage() {
           </table>
         </div>
       </section>
-
-      {/* --- SECTION 2: MATCH PREVIEWS --- */}
-      <section className="space-y-6">
-        <h2 className="text-xl font-bold text-red-500 uppercase tracking-widest">Upcoming Strategy</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMatches.map((m) => (
-            <div key={m.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-red-600 transition-all group">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-black text-gray-500">QUAL MATCH {m.match_number}</span>
-                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="space-y-1">
-                  {m.red_alliance.map((t: number) => (
-                    <div key={t} onClick={() => router.push(`/analysis/team/${t}`)} className="text-lg font-black text-red-500 hover:underline cursor-pointer">{t}</div>
-                  ))}
-                </div>
-                <div className="text-xs font-black text-gray-700 italic">VS</div>
-                <div className="space-y-1 text-right">
-                  {m.blue_alliance.map((t: number) => (
-                    <div key={t} onClick={() => router.push(`/analysis/team/${t}`)} className="text-lg font-black text-blue-500 hover:underline cursor-pointer">{t}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
-  );
+    );
 }
