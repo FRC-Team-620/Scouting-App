@@ -281,13 +281,7 @@ export default function TeamDetailPage() {
                 {pitData.fuel_capacity !== null && (
                   <div className="bg-purple-800/50 p-3 rounded border-l-2 border-purple-500">
                     <p className="text-[9px] text-purple-400 uppercase mb-1">Fuel Capacity</p>
-                    <p className="font-bold text-purple-100">{pitData.fuel_capacity}</p>
-                  </div>
-                )}
-                {pitData.robot_weight_lbs !== null && (
-                  <div className="bg-purple-800/50 p-3 rounded border-l-2 border-purple-500">
-                    <p className="text-[9px] text-purple-400 uppercase mb-1">Weight</p>
-                    <p className="font-bold text-purple-100">{pitData.robot_weight_lbs} lbs</p>
+                    <p className="font-bold text-purple-100">{pitData.fuel_capacity}/5</p>
                   </div>
                 )}
               </div>
