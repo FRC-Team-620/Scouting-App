@@ -305,7 +305,7 @@ function TeamCard({ team, isPicked, actions, rank, onTogglePicked, onTeamClick }
               e.stopPropagation(); 
               onTogglePicked(); 
             }} 
-            className={`h-4 w-4 flex items-center justify-center border ${isPicked ? 'bg-red-600 border-red-500 text-white' : 'border-gray-600'} rounded-sm text-[10px]`}
+            className={`h-7 w-7 flex items-center justify-center border ${isPicked ? 'bg-red-600 border-red-500 text-white' : 'border-gray-600'} rounded-sm text-[10px]`}
           >
             {isPicked && '✓'}
           </button>
