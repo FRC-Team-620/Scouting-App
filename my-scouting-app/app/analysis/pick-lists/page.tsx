@@ -119,6 +119,11 @@ export default function PickListsPage() {
     if (listType === '2nd') setSecondPickList(secondPickList.filter(t => t !== num));
   };
 
+  const handleCompChange = (compId: string) => {
+    setSelectedCompId(compId);
+    localStorage.setItem('analysis_last_comp_id', compId);
+  }
+
   const filteredPool = teamStats.filter(t => 
     t.avg_score >= minScore &&
     t.avg_defense >= minDefense &&
@@ -141,7 +146,7 @@ export default function PickListsPage() {
           </div>
           <select 
             value={selectedCompId} 
-            onChange={(e) => setSelectedCompId(e.target.value)}
+            onChange={(e) => handleCompChange(e.target.value)}
             className="w-full max-w-[200px] bg-gray-900 border border-gray-800 p-2 rounded text-[10px] font-bold uppercase text-white truncate"
           >
             {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -317,6 +322,7 @@ function TeamCard({ team, isPicked, actions, rank, onTogglePicked, onTeamClick }
               <span>Auto: {team.avg_auto}</span>
               <span>Tele: {team.avg_teleop}</span>
               <span>Def: {team.avg_defense}</span>
+              <span>Climb: {team.avg_climb}</span>
             </div>
           </div>
         </div>

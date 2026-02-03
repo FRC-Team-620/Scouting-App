@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-black text-white antialiased">
+      <body className="bg-black text-white antialiased flex flex-col min-h-screen">
         {/* --- NAVIGATION BAR --- */}
 <nav className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800">
   <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -45,7 +45,32 @@ export default function RootLayout({
 </nav>
 
         {/* --- PAGE CONTENT --- */}
-        <main>{children}</main>
+        <main className="flex-grow">
+          {children}
+          </main>
+        <footer className="border-t border-gray-900 bg-black/50 py-8 mt-10">
+          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <div className="text-center md:text-left">
+              <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em]">
+                Warbot Scouting // REBUILT
+              </p>
+            </div>
+
+            <a 
+              href="https://www.thebluealliance.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition-all"
+            >
+              <span className="text-[10px] font-bold text-gray-500 uppercase">Powered by</span>
+              <span className="text-xs font-black italic tracking-tighter text-blue-500">
+              The Blue Alliance
+              </span>
+            </a>
+
+          </div>
+        </footer>
       </body>
     </html>
   );
