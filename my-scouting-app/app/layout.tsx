@@ -40,6 +40,7 @@ export default function RootLayout({
       <Link href="/analysis/matches" className="hover:text-white whitespace-nowrap">Matches</Link>
       <Link href="/analysis/teams" className="hover:text-white whitespace-nowrap">Teams</Link>
       <Link href="/analysis/pick-lists" className="hover:text-white whitespace-nowrap">Picks</Link>
+      <Link href="/admin" className="hover:text-gray whitespace-nowrap">Admin</Link>
     </div>
   </div>
 </nav>

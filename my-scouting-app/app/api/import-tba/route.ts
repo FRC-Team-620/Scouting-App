@@ -90,7 +90,7 @@ export async function GET(request: Request) {
             .from('matches')
             .upsert(finalMatchData, {
                 // If a row with this match_number and event_key exists, update it
-                onConflict: 'match_number,event_key'
+                onConflict: 'match_number, event_key'
             });
 
         // If Supabase fails to save matches, throw an error

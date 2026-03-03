@@ -63,9 +63,12 @@ export default function PitScoutingPage() {
       }
 
       // Convert to array and sort
-      const uniqueTeams = Array.from(teamSet)
-        .sort((a, b) => a - b)
-        .map(team_number => ({ team_number }));
+      const { data: teamsData } = await supabase
+        .from('teams')
+        .select('team_number, nickname')
+        .in('team_number', Array.from(teamSet));
+
+    const uniqueTeams = (teamsData || []).sort((a, b) => a.team_number - b.team_number);
 
       setTeams(uniqueTeams);
       setTeamNumber(""); // Reset team selection when competition changes
@@ -322,11 +325,11 @@ export default function PitScoutingPage() {
           <div className="flex justify-between items-center mb-6">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hopper Capacity</label>
             <span className="bg-red-500/20 text-red-400 text-[10px] font-black px-3 py-1 rounded-full uppercase">
-              {hopperSize === 1 && "< 10 Fuel"}
-              {hopperSize === 2 && "10-20 Fuel"}
-              {hopperSize === 3 && "20-30 Fuel"}
-              {hopperSize === 4 && "30-40 Fuel"}
-              {hopperSize === 5 && "40+ Fuel)"}
+              {hopperSize === 1 && "< 20 Fuel"}
+              {hopperSize === 2 && "20-40 Fuel"}
+              {hopperSize === 3 && "40-60 Fuel"}
+              {hopperSize === 4 && "60-80 Fuel"}
+              {hopperSize === 5 && "80+ Fuel"}
             </span>
           </div>
           <input 
