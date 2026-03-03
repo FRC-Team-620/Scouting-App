@@ -13,6 +13,9 @@ export async function GET(request: Request) {
         // 1. Fetch ALL matches for this event from TBA
         // This returns an array of match objects
         const matches = await fetchTBA(`/event/${eventKey}/matches/simple`);
+        
+        const statboticsRes = await fetch(`https://api.statbotics.io/v3/matches?event=${eventKey}`);
+        const statboticsMatches = await statboticsRes.json();
 
         // 2. Map the data to fit your Supabase schema
         const upsertData = matches.map((match: any) => ({
