@@ -13,7 +13,8 @@ export default function MatchSelector(){
     const [scoutingTeam, setScoutingTeam] = useState<number | null>(null);
     const [autoScore, setAutoScore] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [teleopScore, setTeleopScore] = useState(0);
+  const [cyclesPerMatch, setCyclesPerMatch] = useState(0);
+  const [ballsPerCycle, setBallsPerCycle] = useState(0);
     const [climbLevel, setClimbLevel] = useState(0); // 0=None, 1=Park, 2=Low, 3=High
     const [speed, setSpeed] = useState(3); // Default to middle (3)
     const [defense, setDefense] = useState(0); // Default to low (1)
@@ -78,7 +79,8 @@ export default function MatchSelector(){
     const resetForm = () => {
       setScoutingTeam(null);
       setAutoScore(0);
-      setTeleopScore(0);
+      setCyclesPerMatch(0);
+      setBallsPerCycle(0);
       setClimbLevel(0);
       setSpeed(3);
       setDefense(0);
@@ -89,24 +91,25 @@ export default function MatchSelector(){
       setAutoClimb(false);
     };
 
-    const submitData = async () => {
-        const { error } = await supabase.from('scouting_reports').insert([
-            {
-                match_id: selectedMatch.id,
-                team_number: scoutingTeam,
-                auto_score: autoScore,
-                teleop_score: teleopScore,
-                climb_level: climbLevel,
-                speed: speed,
-                defense: defense,
-                notes: notes,
-                pickup_positions: pickupPositions,
-                scouter_name: "User",
-                shooting_speed: shootingSpeed,
-                intake_speed: intakeSpeed,
-                auto_climb: autoClimb,
-            }
-        ]);
+  const submitData = async () => {
+    const computedTeleop = cyclesPerMatch * ballsPerCycle;
+    const { error } = await supabase.from('scouting_reports').insert([
+      {
+        match_id: selectedMatch.id,
+        team_number: scoutingTeam,
+        auto_score: autoScore,
+        teleop_score: computedTeleop,
+        climb_level: climbLevel,
+        speed: speed,
+        defense: defense,
+        notes: notes,
+        pickup_positions: pickupPositions,
+        scouter_name: "User",
+        shooting_speed: shootingSpeed,
+        intake_speed: intakeSpeed,
+        auto_climb: autoClimb,
+      }
+    ]);
 
         if(error){
             alert("Error saving: " + error.message);
@@ -213,13 +216,30 @@ export default function MatchSelector(){
     </div>
   </div>  
 
-  {/* --- TELEOP SCORE --- */}
-  <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-    <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Teleop Fuel (Estimate) </label>
-    <div className="flex items-center justify-between">
-      <button onClick={() => decrement(setTeleopScore, teleopScore)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
-      <span className="text-4xl font-black">{teleopScore}</span>
-      <button onClick={() => increment(setTeleopScore, teleopScore)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+  {/* --- TELEOP: cycles & balls --- */}
+  <div className="grid grid-cols-3 gap-4">
+    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
+      <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Cycles / Match</label>
+      <div className="flex items-center justify-between">
+        <button onClick={() => decrement(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
+        <span className="text-4xl font-black">{cyclesPerMatch}</span>
+        <button onClick={() => increment(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+      </div>
+    </div>
+
+    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
+      <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Average Balls / Cycle</label>
+      <div className="flex items-center justify-between">
+        <button onClick={() => decrement(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
+        <span className="text-4xl font-black">{ballsPerCycle}</span>
+        <button onClick={() => increment(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+      </div>
+    </div>
+
+    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center justify-center">
+      <label className="block text-center mb-2 font-bold text-gray-400 uppercase text-xs">Teleop (computed)</label>
+      <span className="text-4xl font-black">{cyclesPerMatch * ballsPerCycle}</span>
+      <p className="text-[10px] text-gray-500 mt-2">cycles × balls</p>
     </div>
   </div>
 
