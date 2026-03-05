@@ -221,18 +221,18 @@ export default function MatchSelector(){
     <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
       <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Cycles / Match</label>
       <div className="flex items-center justify-between">
-        <button onClick={() => decrement(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
-        <span className="text-4xl font-black">{cyclesPerMatch}</span>
-        <button onClick={() => increment(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+  <button onClick={() => decrement(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-20 w-20 sm:h-16 sm:w-16 rounded-xl text-3xl sm:text-2xl">-</button>
+  <span className="text-4xl font-black">{cyclesPerMatch}</span>
+  <button onClick={() => increment(setCyclesPerMatch, cyclesPerMatch)} className="bg-gray-800 h-20 w-20 sm:h-16 sm:w-16 rounded-xl text-3xl sm:text-2xl">+</button>
       </div>
     </div>
 
     <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
       <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Average Balls / Cycle</label>
       <div className="flex items-center justify-between">
-        <button onClick={() => decrement(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
-        <span className="text-4xl font-black">{ballsPerCycle}</span>
-        <button onClick={() => increment(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
+  <button onClick={() => decrement(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-20 w-20 sm:h-16 sm:w-16 rounded-xl text-3xl sm:text-2xl">-</button>
+  <span className="text-4xl font-black">{ballsPerCycle}</span>
+  <button onClick={() => increment(setBallsPerCycle, ballsPerCycle)} className="bg-gray-800 h-20 w-20 sm:h-16 sm:w-16 rounded-xl text-3xl sm:text-2xl">+</button>
       </div>
     </div>
 
