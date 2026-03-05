@@ -207,7 +207,12 @@ export default function MatchSelector(){
 </div>
 
 {/* --- AUTO SCORE --- */}
-<div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
+
+
+  {/* --- TELEOP: cycles & balls --- */}
+  <div className="grid grid-cols-2 grid-rows-2 gap-4">
+
+    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
     <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Auto Fuel (Estimate)</label>
     <div className="flex items-center justify-between">
       <button onClick={() => decrement(setAutoScore, autoScore)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">-</button>
@@ -215,9 +220,6 @@ export default function MatchSelector(){
       <button onClick={() => increment(setAutoScore, autoScore)} className="bg-gray-800 h-16 w-16 rounded-xl text-2xl">+</button>
     </div>
   </div>  
-
-  {/* --- TELEOP: cycles & balls --- */}
-  <div className="grid grid-cols-3 gap-4">
     <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
       <label className="block text-center mb-4 font-bold text-gray-400 uppercase text-xs">Cycles / Match</label>
       <div className="flex items-center justify-between">
